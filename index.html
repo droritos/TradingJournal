@@ -350,4 +350,147 @@ Start with: Tell me about your last trade.`;
                             <div class="ticker">${t.ticker || 'UNKNOWN'}</div>
                             <div class="date">${t.date || '--'}</div>
                         </div>
-                        <div
+                        <div class="badges">
+                            ${t.direction ? `<span class="badge ${t.direction.toLowerCase()}">${t.direction}</span>` : ''}
+                            ${t.result ? `<span class="badge ${t.result.toLowerCase()}">${t.result}</span>` : ''}
+                        </div>
+                    </div>
+                    <div><span class="badge setup">${t.setup_type || 'unclassified'}</span></div>
+                    <div class="card-grid">
+                        <div><span class="stat-label">Entry:</span> <span class="stat-val">${t.entry_price ? '$'+t.entry_price : '-'}</span></div>
+                        <div><span class="stat-label">R(Entry):</span> <span class="stat-val" style="color:var(--amber)">${t.r_multiple_entry || '-'}</span></div>
+                        <div><span class="stat-label">Stop:</span> <span class="stat-val">${t.stop_price ? '$'+t.stop_price : '-'}</span></div>
+                        <div><span class="stat-label">Actual R:</span> <span class="stat-val" style="color:${(t.actual_r||0) >= 0 ? 'var(--green)' : 'var(--red)'}">${t.actual_r || '-'}R</span></div>
+                        <div><span class="stat-label">Target:</span> <span class="stat-val">${t.target_price ? '$'+t.target_price : '-'}</span></div>
+                        <div><span class="stat-label">Size:</span> <span class="stat-val">${t.position_size || '-'}</span></div>
+                        <div><span class="stat-label">Exec:</span> <span class="stat-val" style="color:var(--amber)">${getDots(t.execution_quality)}</span></div>
+                        <div><span class="stat-label">Emo:</span> <span class="stat-val">${t.emotional_state || '-'}</span></div>
+                    </div>
+                    <div class="r-bar-container">
+                        <div class="r-bar ${rBarClass}" style="width: ${rBarWidth}%"></div>
+                    </div>
+                    <div class="notes">
+                        <div>+ <span>${t.did_right || '-'}</span></div>
+                        <div style="margin-top:4px;">Δ <span>${t.would_change || '-'}</span></div>
+                    </div>
+                `;
+                panel.prepend(card); // Newest first
+            });
+        }
+
+        async function callGemini(userMessage) {
+            const apiKey = document.getElementById('api-key').value;
+            if (!apiKey) {
+                alert("Please enter your Gemini API key in the top right.");
+                return null;
+            }
+
+            document.getElementById('loader').style.display = 'block';
+            try {
+                // Using gemini-1.5-flash as it is fast and ideal for text/JSON extraction
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+                
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        systemInstruction: {
+                            parts: [{ text: SYSTEM_PROMPT }]
+                        },
+                        contents: [{
+                            role: 'user',
+                            parts: [{ text: userMessage }]
+                        }],
+                        generationConfig: {
+                            temperature: 0.2 // Lower temperature for more consistent JSON extraction
+                        }
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.error) throw new Error(data.error.message);
+                
+                // Navigate the Gemini response object to get the text
+                return data.candidates[0].content.parts[0].text;
+                
+            } catch (err) {
+                alert("API Error: " + err.message);
+                return null;
+            } finally {
+                document.getElementById('loader').style.display = 'none';
+            }
+        }
+
+        async function submitTrade() {
+            const inputEl = document.getElementById('trade-input');
+            const text = inputEl.value.trim();
+            if (!text) return;
+
+            appendMessage('user', text);
+            inputEl.value = '';
+
+            const responseText = await callGemini(text);
+            if (!responseText) return;
+
+            // Extract JSON from response
+            const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+            let aiComment = responseText;
+
+            if (jsonMatch) {
+                try {
+                    const tradeData = JSON.parse(jsonMatch[0]);
+                    trades.push(tradeData);
+                    saveTrades();
+                    
+                    // Clean up text response to only show Part 1 in chat
+                    aiComment = responseText.replace(jsonMatch[0], '')
+                                            .replace(/PART 1:|PART 2:/gi, '')
+                                            .replace(/```json/gi, '')
+                                            .replace(/```/gi, '')
+                                            .trim();
+                } catch (e) {
+                    console.error("Failed to parse JSON out of response", e);
+                }
+            }
+
+            if(aiComment) appendMessage('ai', aiComment);
+        }
+
+        async function requestReview() {
+            if(trades.length === 0) return alert("No trades to review.");
+            
+            appendMessage('user', "Please execute a REVIEW on my current trade journal.");
+            
+            const prompt = `REVIEW the following trades according to the system prompt instructions:\n\n${JSON.stringify(trades)}`;
+            const responseText = await callGemini(prompt);
+            
+            if(responseText) {
+                 const cleanText = responseText.replace(/PART 1:|PART 2:/gi, '').trim();
+                 appendMessage('ai', cleanText);
+            }
+        }
+
+        function clearAll() {
+            if (confirm("Are you sure you want to delete all trades?")) {
+                trades = [];
+                saveTrades();
+                document.getElementById('chat-history').innerHTML = '<div class="message msg-ai">Tell me about your last trade.</div>';
+            }
+        }
+
+        // Init
+        renderTrades();
+        
+        // Enter key to send
+        document.getElementById('trade-input').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                submitTrade();
+            }
+        });
+    </script>
+</body>
+</html>
