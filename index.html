@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Trading Journal (Gemini)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #080808;
+            --panel: #141414;
+            --border: #2a2a2a;
+            --text: #e0e0e0;
+            --text-dim: #888888;
+            --green: #2CC84A;
+            --red: #FF3B30;
+            --amber: #FF9500;
+            --blue: #0A84FF;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'IBM Plex Mono', monospace;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* HEADER */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg);
+        }
+        
+        .header-left h1 {
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        input[type="password"] {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 8px 12px;
+            font-size: 12px;
+            width: 200px;
+            outline: none;
+        }
+
+        button {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 8px 16px;
+            font-size: 12px;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            border-color: var(--text-dim);
+            color: #fff;
+        }
+
+        /* MAIN LAYOUT */
+        main {
+            display: grid;
+            grid-template-columns: 400px 1fr;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* CHAT PANEL */
+        .chat-panel {
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            background: var(--panel);
+        }
+
+        .chat-history {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .message {
+            font-size: 13px;
+            line-height: 1.5;
+            padding: 12px 16px;
+            max-width: 90%;
+        }
+
+        .msg-ai {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            align-self: flex-start;
+            color: var(--green);
+        }
+
+        .msg-user {
+            background: #222;
+            align-self: flex-end;
+            color: #fff;
+        }
+
+        .chat-input {
+            padding: 16px;
+            border-top: 1px solid var(--border);
+            background: var(--bg);
+        }
+
+        textarea {
+            width: 100%;
+            height: 120px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 12px;
+            font-size: 13px;
+            resize: none;
+            outline: none;
+            margin-bottom: 8px;
+        }
+
+        textarea:focus {
+            border-color: var(--text-dim);
+        }
+
+        .send-btn {
+            width: 100%;
+            background: var(--text);
+            color: var(--bg);
+            font-weight: 600;
+        }
+
+        .send-btn:hover {
+            background: #fff;
+        }
+
+        /* CARDS PANEL */
+        .cards-panel {
+            padding: 24px;
+            overflow-y: auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            gap: 20px;
+            align-content: flex-start;
+        }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            padding: 20px;
+            animation: slideIn 0.3s ease-out forwards;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 12px;
+        }
+
+        .ticker {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .date {
+            font-size: 12px;
+            color: var(--text-dim);
+        }
+
+        .badges {
+            display: flex;
+            gap: 8px;
+        }
+
+        .badge {
+            font-size: 10px;
+            padding: 2px 6px;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        /* Badge Colors */
+        .badge.long { color: var(--green); border: 1px solid var(--green); }
+        .badge.short { color: var(--red); border: 1px solid var(--red); }
+        .badge.win { background: var(--green); color: var(--bg); }
+        .badge.loss { background: var(--red); color: var(--bg); }
+        .badge.breakeven { background: var(--text-dim); color: var(--bg); }
+        .badge.open { background: var(--amber); color: var(--bg); }
+        .badge.setup { border: 1px solid var(--text-dim); color: var(--text-dim); }
+
+        .card-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            font-size: 12px;
+        }
+
+        .stat-label { color: var(--text-dim); }
+        .stat-val { color: var(--text); }
+
+        .r-bar-container {
+            height: 4px;
+            background: var(--bg);
+            width: 100%;
+            margin-top: 8px;
+            position: relative;
+        }
+
+        .r-bar {
+            height: 100%;
+            position: absolute;
+            left: 50%;
+        }
+
+        .r-bar.positive { background: var(--green); }
+        .r-bar.negative { background: var(--red); right: 50%; left: auto; }
+
+        .notes {
+            font-size: 11px;
+            color: var(--text-dim);
+            margin-top: 8px;
+            border-top: 1px dashed var(--border);
+            padding-top: 8px;
+        }
+        
+        .notes span { color: var(--text); }
+
+        /* Loader */
+        #loader {
+            display: none;
+            font-size: 12px;
+            color: var(--amber);
+            text-align: center;
+            padding: 8px;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="header-left">
+            <h1>Trading Journal <span id="trade-count" style="color:var(--text-dim); margin-left:8px;">(0)</span></h1>
+        </div>
+        <div class="header-controls">
+            <input type="password" id="api-key" placeholder="Gemini API Key" autocomplete="off">
+            <button onclick="requestReview()">Request Review</button>
+            <button onclick="clearAll()" style="color: var(--red); border-color: var(--red);">Clear All</button>
+        </div>
+    </header>
+
+    <main>
+        <div class="chat-panel">
+            <div class="chat-history" id="chat-history">
+                <div class="message msg-ai">Tell me about your last trade.</div>
+            </div>
+            <div id="loader">Processing...</div>
+            <div class="chat-input">
+                <textarea id="trade-input" placeholder="e.g. Bought NVDA on 12/3, breakout at $138.50, stop $134, target $148, 2% size, execution 4/5, calm. Won at $146.20."></textarea>
+                <button class="send-btn" onclick="submitTrade()">Send to AI</button>
+            </div>
+        </div>
+        <div class="cards-panel" id="cards-panel">
+            </div>
+    </main>
+
+    <script>
+        const SYSTEM_PROMPT = `You are a trading journal AI. When a user describes a trade, respond in TWO parts:
+PART 1: One sentence. Flag rule violations: no impulse trades, stop always predefined, never average down.
+PART 2: Extract to JSON:
+{"date":null,"ticker":"","setup_type":"breakout|pullback_ema|range|vcp|other","direction":"Long|Short","entry_price":null,"stop_price":null,"target_price":null,"r_multiple_entry":null,"position_size":null,"execution_quality":null,"emotional_state":"calm|anxious|FOMO|revenge|disciplined","result":"Win|Loss|Breakeven|Open","actual_r":null,"did_right":"","would_change":""}
+Use null for missing fields. On REVIEW: win rate, avg R won/lost, common setup, execution mistakes, emotion/result correlation, one fix.
+Start with: Tell me about your last trade.`;
+
+        let trades = JSON.parse(window.localStorage.getItem('ai_trades')) || [];
+
+        function saveTrades() {
+            window.localStorage.setItem('ai_trades', JSON.stringify(trades));
+            renderTrades();
+        }
+
+        function appendMessage(role, text) {
+            const history = document.getElementById('chat-history');
+            const msg = document.createElement('div');
+            msg.className = `message ${role === 'user' ? 'msg-user' : 'msg-ai'}`;
+            msg.textContent = text;
+            history.appendChild(msg);
+            history.scrollTop = history.scrollHeight;
+        }
+
+        function getDots(score) {
+            if (!score) return '-';
+            const num = parseInt(score);
+            return '●'.repeat(num) + '○'.repeat(5 - num);
+        }
+
+        function renderTrades() {
+            const panel = document.getElementById('cards-panel');
+            document.getElementById('trade-count').innerText = `(${trades.length})`;
+            panel.innerHTML = '';
+
+            trades.forEach(t => {
+                const rBarWidth = Math.min(Math.abs(t.actual_r || 0) * 10, 50); // Scale R for bar
+                const rBarClass = (t.actual_r >= 0) ? 'positive' : 'negative';
+                
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `
+                    <div class="card-header">
+                        <div>
+                            <div class="ticker">${t.ticker || 'UNKNOWN'}</div>
+                            <div class="date">${t.date || '--'}</div>
+                        </div>
+                        <div
